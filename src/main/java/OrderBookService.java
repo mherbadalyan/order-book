@@ -1,14 +1,13 @@
-import model.Order;
-import model.Status;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.BiFunction;
 
 public class OrderBookService {
 
-    private static final TreeMap<Integer, Order> bidOrderBook = new TreeMap<>(Collections.reverseOrder());
-    private static final TreeMap<Integer, Order> askOrderBook = new TreeMap<>();
-    private static final TreeMap<Integer, Order> spreadOrderBook = new TreeMap<>();
+    private static final TreeMap<Integer, Integer> bidOrderBook = new TreeMap<>(Collections.reverseOrder());
+    private static final TreeMap<Integer, Integer> askOrderBook = new TreeMap<>();
+    private static final TreeMap<Integer, Integer> spreadOrderBook = new TreeMap<>();
 
     static final File inputFile = new File("input.txt");
 
@@ -60,26 +59,24 @@ public class OrderBookService {
     }
 
     static void updateOrderBook(String[] lineInputs) {
-        Order order = new Order();
+        int size;
+        int price;
         try {
-            order.setPrice(Integer.valueOf(lineInputs[1]));
-            order.setSize(Integer.parseInt(lineInputs[2]));
+            price = Integer.parseInt(lineInputs[1]);
+            size = Integer.parseInt(lineInputs[2]);
         } catch (NumberFormatException e) {
             System.out.println("String does not contain a parsable integer");
             return;
         }
         switch (lineInputs[3]) {
             case "bid":
-                order.setStatus(Status.BID);
-                bidOrderBook.put(order.getPrice(), order);
+                bidOrderBook.merge(price,size,(k, v) -> bidOrderBook.get(price) + size);
                 break;
             case "ask":
-                order.setStatus(Status.ASK);
-                askOrderBook.put(order.getPrice(), order);
+                askOrderBook.merge(price,size,(k, v) -> askOrderBook.get(price) + size);
                 break;
             case "spread":
-                order.setStatus(Status.SPREAD);
-                spreadOrderBook.put(order.getPrice(), order);
+                spreadOrderBook.merge(price,size,(k, v) -> spreadOrderBook.get(price) + size);
                 break;
             default:
                 System.out.println("Argument doesn't contain bid,ask or spread");
@@ -87,34 +84,33 @@ public class OrderBookService {
     }
 
     static void findAndWriteOrder(String[] lineInputs) {
-        Status status = lineInputs[1].equals("best_bid") ? Status.BID : lineInputs[1].equals("best_ask") ? Status.ASK : null;
+        String status = lineInputs[1];
 
-        if (status != null) {
-            TreeMap<Integer, Order> orderBook = status == Status.BID ? bidOrderBook : askOrderBook;
+        if (status.equals("best_ask") || status.equals("best_bid")) {
+            TreeMap<Integer, Integer> orderBook = status.equals("best_bid") ? bidOrderBook : askOrderBook;
 
-            for (Map.Entry<Integer, Order> orderEntry : orderBook.entrySet()) {
-                if (orderEntry.getValue().getSize() > 0) {
-                    writeOrderToFile(orderEntry.getValue().toString());
+            for (Map.Entry<Integer, Integer> orderEntry : orderBook.entrySet()) {
+                if (orderEntry.getValue() > 0) {
+                    writeOrderToFile(orderEntry.getKey() + "," + orderEntry.getValue());
                     break;
                 }
             }
         } else if (lineInputs[1].equals("size")) {
-            Order order;
-
+            Integer size;
             try {
                 int price = Integer.parseInt(lineInputs[2]);
-                order = bidOrderBook.get(price);
-                if (order == null) {
-                    order = askOrderBook.get(price);
+                size = bidOrderBook.get(price);
+                if (size == null) {
+                    size = askOrderBook.get(price);
                 }
             } catch (NumberFormatException e) {
                 System.out.println("String does not contain a parsable integer");
                 return;
             }
-            if (order == null) {
+            if (size == null) {
                 writeOrderToFile("0");
             } else {
-                writeOrderToFile(String.valueOf(order.getSize()));
+                writeOrderToFile(String.valueOf(size));
             }
         } else {
             System.out.println("Illegal argument");
@@ -129,19 +125,19 @@ public class OrderBookService {
             System.out.println("String does not contain a parsable integer");
             return;
         }
-        Status status = lineInputs[1].equals("sell") ? Status.BID : lineInputs[1].equals("buy") ? Status.ASK : null;
-        if (status == null) {
+        String operation = lineInputs[1];
+        if (!operation.equals("buy") && !operation.equals("sell")) {
             System.out.println("Argument doesn't contain buy or sell");
             return;
         }
 
-        TreeMap<Integer, Order> orderBook = status == Status.BID ? bidOrderBook : askOrderBook;
+        TreeMap<Integer, Integer> orderBook = operation.equals("sell") ? bidOrderBook : askOrderBook;
 
-        for (Map.Entry<Integer, Order> orderEntry : orderBook.entrySet()) {
-            if (orderEntry.getValue().getSize() > 0) {
-                if (orderEntry.getValue().getSize() >= quantity) {
-                    orderEntry.getValue().setSize(
-                            orderEntry.getValue().getSize() - quantity);
+        for (Map.Entry<Integer, Integer> orderEntry : orderBook.entrySet()) {
+            if (orderEntry.getValue()  > 0) {
+                if (orderEntry.getValue() >= quantity) {
+                    orderEntry.setValue(
+                            orderEntry.getValue()  - quantity);
                     break;
                 } else {
                     System.out.println("Insufficient size of shares");
