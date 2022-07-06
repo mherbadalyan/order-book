@@ -6,7 +6,9 @@ import java.util.*;
 
 public class OrderBookService {
 
-    private static final TreeMap<Integer, Order> orderBook = new TreeMap<>(Collections.reverseOrder());
+    private static final TreeMap<Integer, Order> bidOrderBook = new TreeMap<>(Collections.reverseOrder());
+    private static final TreeMap<Integer, Order> askOrderBook = new TreeMap<>();
+    private static final TreeMap<Integer, Order> spreadOrderBook = new TreeMap<>();
 
     static final File inputFile = new File("input.txt");
 
@@ -24,31 +26,31 @@ public class OrderBookService {
         try (BufferedReader br = new BufferedReader(new InputStreamReader
                 (new FileInputStream(inputFile)))) {
 
-            String[] strArr;
-            String str;
-            while ((str = br.readLine()) != null) {
-                strArr = str.split(",");
+            String[] lineInputs;
+            String line;
+            while ((line = br.readLine()) != null) {
+                lineInputs = line.split(",");
 
 
 
-                switch (strArr[0]) {
+                switch (lineInputs[0]) {
                     case "u":
-                        if (strArr.length != 4) {
+                        if (lineInputs.length != 4) {
                             break;
                         }
-                        updateOrderBook(strArr);
+                        updateOrderBook(lineInputs);
                         break;
                     case "q":
-                        if (strArr.length < 2 ||  strArr.length > 3) {
+                        if (lineInputs.length < 2 ||  lineInputs.length > 3) {
                            break;
                         }
-                        findAndWriteOrder(strArr);
+                        findAndWriteOrder(lineInputs);
                         break;
                     case "o":
-                        if (strArr.length != 3) {
+                        if (lineInputs.length != 3) {
                             break;
                         }
-                        buyOrSell(strArr);
+                        buyOrSell(lineInputs);
                         break;
                     default:
                         System.out.println("Argument doesn't contain as first letter o,u or q");
@@ -59,47 +61,54 @@ public class OrderBookService {
         }
     }
 
-    static void updateOrderBook(String[] args) {
+    static void updateOrderBook(String[] lineInputs) {
         Order order = new Order();
         try {
-            order.setPrice(Integer.valueOf(args[1]));
-            order.setSize(Integer.parseInt(args[2]));
+            order.setPrice(Integer.valueOf(lineInputs[1]));
+            order.setSize(Integer.parseInt(lineInputs[2]));
         } catch (NumberFormatException e) {
             System.out.println("String does not contain a parsable integer");
             return;
         }
-        switch (args[3]) {
+        switch (lineInputs[3]) {
             case "bid":
                 order.setStatus(Status.BID);
+                bidOrderBook.put(order.getPrice(), order);
                 break;
             case "ask":
                 order.setStatus(Status.ASK);
+                askOrderBook.put(order.getPrice(), order);
                 break;
             case "spread":
                 order.setStatus(Status.SPREAD);
+                spreadOrderBook.put(order.getPrice(), order);
                 break;
             default:
                 System.out.println("Argument doesn't contain bid,ask or spread");
-                return;
         }
-        orderBook.put(order.getPrice(), order);
     }
 
-    static void findAndWriteOrder(String[] args) {
-        Status status = args[1].equals("best_bid") ? Status.BID : args[1].equals("best_ask") ? Status.ASK : null;
+    static void findAndWriteOrder(String[] lineInputs) {
+        Status status = lineInputs[1].equals("best_bid") ? Status.BID : lineInputs[1].equals("best_ask") ? Status.ASK : null;
 
         if (status != null) {
-            for (Map.Entry<Integer, Order> integerOrderEntry : orderBook.entrySet()) {
-                if (integerOrderEntry.getValue().getStatus().equals(status) && integerOrderEntry.getValue().getSize() > 0) {
-                    writeOrderToFile(integerOrderEntry.getValue().toString());
+            TreeMap<Integer, Order> orderBook = status == Status.BID ? bidOrderBook : askOrderBook;
+
+            for (Map.Entry<Integer, Order> orderEntry : orderBook.entrySet()) {
+                if (orderEntry.getValue().getSize() > 0) {
+                    writeOrderToFile(orderEntry.getValue().toString());
                     break;
                 }
             }
-        } else if (args[1].equals("size")) {
+        } else if (lineInputs[1].equals("size")) {
             Order order;
 
             try {
-                order = orderBook.get(Integer.valueOf(args[2]));
+                int price = Integer.parseInt(lineInputs[2]);
+                order = bidOrderBook.get(price);
+                if (order == null) {
+                    order = askOrderBook.get(price);
+                }
             } catch (NumberFormatException e) {
                 System.out.println("String does not contain a parsable integer");
                 return;
@@ -114,25 +123,27 @@ public class OrderBookService {
         }
     }
 
-    private static void buyOrSell(String[] strArr) {
+    private static void buyOrSell(String[] lineInputs) {
         int quantity;
         try {
-            quantity = Integer.parseInt(strArr[2]);
+            quantity = Integer.parseInt(lineInputs[2]);
         } catch (NumberFormatException e) {
             System.out.println("String does not contain a parsable integer");
             return;
         }
-        Status status = strArr[1].equals("sell") ? Status.BID : strArr[1].equals("buy") ? Status.ASK : null;
+        Status status = lineInputs[1].equals("sell") ? Status.BID : lineInputs[1].equals("buy") ? Status.ASK : null;
         if (status == null) {
             System.out.println("Argument doesn't contain buy or sell");
             return;
         }
 
-        for (Map.Entry<Integer, Order> integerOrderEntry : orderBook.entrySet()) {
-            if (integerOrderEntry.getValue().getStatus().equals(status) && integerOrderEntry.getValue().getSize() > 0) {
-                if (integerOrderEntry.getValue().getSize() >= quantity) {
-                    integerOrderEntry.getValue().setSize(
-                            integerOrderEntry.getValue().getSize() - quantity);
+        TreeMap<Integer, Order> orderBook = status == Status.BID ? bidOrderBook : askOrderBook;
+
+        for (Map.Entry<Integer, Order> orderEntry : orderBook.entrySet()) {
+            if (orderEntry.getValue().getSize() > 0) {
+                if (orderEntry.getValue().getSize() >= quantity) {
+                    orderEntry.getValue().setSize(
+                            orderEntry.getValue().getSize() - quantity);
                     break;
                 } else {
                     System.out.println("Insufficient size of shares");
