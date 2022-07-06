@@ -31,8 +31,6 @@ public class OrderBookService {
             while ((line = br.readLine()) != null) {
                 lineInputs = line.split(",");
 
-
-
                 switch (lineInputs[0]) {
                     case "u":
                         if (lineInputs.length != 4) {
