@@ -1,7 +1,15 @@
 
-import java.io.*;
-import java.util.*;
-import java.util.function.BiFunction;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Collections;
+import java.util.Map;
+import java.util.TreeMap;
+
 
 public class OrderBookService {
 
@@ -38,8 +46,8 @@ public class OrderBookService {
                         updateOrderBook(lineInputs);
                         break;
                     case "q":
-                        if (lineInputs.length < 2 ||  lineInputs.length > 3) {
-                           break;
+                        if (lineInputs.length < 2 || lineInputs.length > 3) {
+                            break;
                         }
                         findAndWriteOrder(lineInputs);
                         break;
@@ -68,19 +76,23 @@ public class OrderBookService {
             System.out.println("String does not contain a parsable integer");
             return;
         }
+
+        TreeMap<Integer, Integer> orderBook;
         switch (lineInputs[3]) {
             case "bid":
-                bidOrderBook.merge(price,size,(k, v) -> bidOrderBook.get(price) + size);
+                orderBook = bidOrderBook;
                 break;
             case "ask":
-                askOrderBook.merge(price,size,(k, v) -> askOrderBook.get(price) + size);
+                orderBook = askOrderBook;
                 break;
             case "spread":
-                spreadOrderBook.merge(price,size,(k, v) -> spreadOrderBook.get(price) + size);
+                orderBook = spreadOrderBook;
                 break;
             default:
                 System.out.println("Argument doesn't contain bid,ask or spread");
+                return;
         }
+        orderBook.merge(price,size,Integer::sum);
     }
 
     static void findAndWriteOrder(String[] lineInputs) {
@@ -95,23 +107,19 @@ public class OrderBookService {
                     break;
                 }
             }
-        } else if (lineInputs[1].equals("size")) {
-            Integer size;
+        } else if (status.equals("size")) {
+            int size;
+            int price;
             try {
-                int price = Integer.parseInt(lineInputs[2]);
-                size = bidOrderBook.get(price);
-                if (size == null) {
-                    size = askOrderBook.get(price);
-                }
+                price = Integer.parseInt(lineInputs[2]);
             } catch (NumberFormatException e) {
                 System.out.println("String does not contain a parsable integer");
                 return;
             }
-            if (size == null) {
-                writeOrderToFile("0");
-            } else {
-                writeOrderToFile(String.valueOf(size));
-            }
+            size = bidOrderBook.getOrDefault(price, 0)
+                    + askOrderBook.getOrDefault(price, 0)
+                    + spreadOrderBook.getOrDefault(price, 0);
+            writeOrderToFile(String.valueOf(size));
         } else {
             System.out.println("Illegal argument");
         }
@@ -133,17 +141,14 @@ public class OrderBookService {
 
         TreeMap<Integer, Integer> orderBook = operation.equals("sell") ? bidOrderBook : askOrderBook;
 
+        int reminder = quantity;
         for (Map.Entry<Integer, Integer> orderEntry : orderBook.entrySet()) {
-            if (orderEntry.getValue()  > 0) {
-                if (orderEntry.getValue() >= quantity) {
-                    orderEntry.setValue(
-                            orderEntry.getValue()  - quantity);
-                    break;
-                } else {
-                    System.out.println("Insufficient size of shares");
-                    return;
-                }
+            if (reminder == 0) {
+                break;
             }
+            int amount = Math.min(orderEntry.getValue(), reminder);
+            orderEntry.setValue(orderEntry.getValue() - amount);
+            reminder -= amount;
         }
     }
 
