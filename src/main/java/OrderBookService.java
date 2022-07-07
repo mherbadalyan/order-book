@@ -14,8 +14,6 @@ public class OrderBookService {
     private static final TreeMap<Integer, Integer> bidOrderBook = new TreeMap<>(Collections.reverseOrder());
     private static final TreeMap<Integer, Integer> askOrderBook = new TreeMap<>();
 
-    private static final Map<Integer, Integer> askAndBidOrderBook = new HashMap<>(10000);
-
 
     static final File inputFile = new File("input.txt");
 
@@ -90,22 +88,22 @@ public class OrderBookService {
                 System.out.println("Argument doesn't contain bid or ask");
                 return;
         }
-        orderBook.put(price,size);
-        askAndBidOrderBook.put(price,size);
+        if (size == 0) {
+            orderBook.remove(price);
+        }else {
+            orderBook.put(price, size);
+        }
     }
 
-    static void findAndWriteOrder(String[] lineInputs,BufferedWriter out) {
+    static void findAndWriteOrder(String[] lineInputs,BufferedWriter out) throws IOException {
         String status = lineInputs[1];
 
         if (status.equals("best_ask") || status.equals("best_bid")) {
             TreeMap<Integer, Integer> orderBook = status.equals("best_bid") ? bidOrderBook : askOrderBook;
 
-            for (Map.Entry<Integer, Integer> entry : orderBook.entrySet()) {
-                if (entry.getValue() > 0) {
-                    writeOrderToFile(entry.getKey() + "," + entry.getValue(),out);
-                    break;
-                }
-            }
+            Map.Entry<Integer, Integer> first = orderBook.entrySet().iterator().next();
+            writeOrderToFile(first.getKey() + "," + first.getValue(),out);
+
         } else if (status.equals("size")) {
             int size;
             int price;
@@ -115,7 +113,8 @@ public class OrderBookService {
                 System.out.println("String does not contain a parsable integer");
                 return;
             }
-            size = askAndBidOrderBook.getOrDefault(price, 0);
+            size = bidOrderBook.getOrDefault(price, 0) +
+                    askOrderBook.getOrDefault(price, 0);
             writeOrderToFile(String.valueOf(size),out);
         } else {
             System.out.println("Illegal argument");
@@ -139,28 +138,27 @@ public class OrderBookService {
         TreeMap<Integer, Integer> orderBook = operation.equals("sell") ? bidOrderBook : askOrderBook;
 
         int reminder = quantity;
-        int amount;
-        for (Map.Entry<Integer, Integer> entry : orderBook.entrySet()) {
+        Iterator<Map.Entry<Integer, Integer>> iterator = orderBook.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Integer, Integer> entry = iterator.next();
             if (reminder == 0) {
                 break;
             }
-            amount = Math.min(entry.getValue(), reminder);
-            entry.setValue(entry.getValue() - amount);
-            askAndBidOrderBook.put(entry.getKey(),entry.getValue());
-            reminder -= amount;
+            int size = entry.getValue();
+            if (reminder >= size) {
+                reminder -= size;
+                iterator.remove();
+            }else {
+                entry.setValue(size - reminder);
+                reminder = 0;
+            }
         }
+
     }
 
-    private static void writeOrderToFile(String text,BufferedWriter out) {
-
-
-
-        try {
+    private static void writeOrderToFile(String text,BufferedWriter out) throws IOException {
             out.write(text);
             out.newLine();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
 
     }
 }
