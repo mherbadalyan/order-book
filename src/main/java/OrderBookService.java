@@ -6,15 +6,15 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Collections;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 
 public class OrderBookService {
 
     private static final TreeMap<Integer, Integer> bidOrderBook = new TreeMap<>(Collections.reverseOrder());
     private static final TreeMap<Integer, Integer> askOrderBook = new TreeMap<>();
+
+    private static final Map<Integer, Integer> askAndBidOrderBook = new HashMap<>();
 
 
     static final File inputFile = new File("input.txt");
@@ -90,6 +90,7 @@ public class OrderBookService {
                 return;
         }
         orderBook.put(price,size);
+        askAndBidOrderBook.put(price,size);
     }
 
     static void findAndWriteOrder(String[] lineInputs) {
@@ -113,8 +114,7 @@ public class OrderBookService {
                 System.out.println("String does not contain a parsable integer");
                 return;
             }
-            size = bidOrderBook.getOrDefault(price, 0)
-                    + askOrderBook.getOrDefault(price, 0);
+            size = askAndBidOrderBook.getOrDefault(price, 0);
             writeOrderToFile(String.valueOf(size));
         } else {
             System.out.println("Illegal argument");
@@ -145,6 +145,7 @@ public class OrderBookService {
             }
             amount = Math.min(entry.getValue(), reminder);
             entry.setValue(entry.getValue() - amount);
+            askAndBidOrderBook.put(entry.getKey(),entry.getValue());
             reminder -= amount;
         }
     }
