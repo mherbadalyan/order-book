@@ -14,7 +14,7 @@ public class OrderBookService {
     private static final TreeMap<Integer, Integer> bidOrderBook = new TreeMap<>(Collections.reverseOrder());
     private static final TreeMap<Integer, Integer> askOrderBook = new TreeMap<>();
 
-    private static final Map<Integer, Integer> askAndBidOrderBook = new HashMap<>();
+    private static final Map<Integer, Integer> askAndBidOrderBook = new HashMap<>(10000);
 
 
     static final File inputFile = new File("input.txt");
@@ -31,7 +31,8 @@ public class OrderBookService {
         }
 
         try (BufferedReader br = new BufferedReader(new InputStreamReader
-                (new FileInputStream(inputFile)))) {
+                (new FileInputStream(inputFile)));
+             BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true))) {
 
             String[] lineInputs;
             String line;
@@ -49,7 +50,7 @@ public class OrderBookService {
                         if (lineInputs.length < 2 || lineInputs.length > 3) {
                             break;
                         }
-                        findAndWriteOrder(lineInputs);
+                        findAndWriteOrder(lineInputs,out);
                         break;
                     case "o":
                         if (lineInputs.length != 3) {
@@ -93,7 +94,7 @@ public class OrderBookService {
         askAndBidOrderBook.put(price,size);
     }
 
-    static void findAndWriteOrder(String[] lineInputs) {
+    static void findAndWriteOrder(String[] lineInputs,BufferedWriter out) {
         String status = lineInputs[1];
 
         if (status.equals("best_ask") || status.equals("best_bid")) {
@@ -101,7 +102,7 @@ public class OrderBookService {
 
             for (Map.Entry<Integer, Integer> entry : orderBook.entrySet()) {
                 if (entry.getValue() > 0) {
-                    writeOrderToFile(entry.getKey() + "," + entry.getValue());
+                    writeOrderToFile(entry.getKey() + "," + entry.getValue(),out);
                     break;
                 }
             }
@@ -115,7 +116,7 @@ public class OrderBookService {
                 return;
             }
             size = askAndBidOrderBook.getOrDefault(price, 0);
-            writeOrderToFile(String.valueOf(size));
+            writeOrderToFile(String.valueOf(size),out);
         } else {
             System.out.println("Illegal argument");
         }
@@ -150,13 +151,16 @@ public class OrderBookService {
         }
     }
 
-    private static void writeOrderToFile(String text) {
+    private static void writeOrderToFile(String text,BufferedWriter out) {
 
-        try (BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true))) {
+
+
+        try {
             out.write(text);
             out.newLine();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
     }
 }
